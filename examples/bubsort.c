@@ -9,21 +9,22 @@
 #include <stdio.h>
 
 /* Size of array to sort. */
-#define SORT_SIZE 128
+#define SORT_SIZE 1000000
+
+int a[400000];
 
 int
 main (void)
 {
-  /* Array to sort.  Static to reduce stack usage. */
-  static int array[SORT_SIZE];
+  /*
 
   int i, j, tmp;
 
-  /* First initialize the array in descending order. */
+  
   for (i = 0; i < SORT_SIZE; i++)
     array[i] = SORT_SIZE - i - 1;
 
-  /* Then sort in ascending order. */
+
   for (i = 0; i < SORT_SIZE - 1; i++)
     for (j = 0; j < SORT_SIZE - 1 - i; j++)
       if (array[j] > array[j + 1])
@@ -35,7 +36,7 @@ main (void)
 
   for(i = 0; i<SORT_SIZE-2;i++){
     printf("%d ",array[i]);
-  }
-  printf ("sort exiting with code %d\n", array[0]);
-  return array[0];
+  }*/
+  printf ("sort exiting with code %d\n", 0);
+  return 0;
 }

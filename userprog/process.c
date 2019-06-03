@@ -21,15 +21,10 @@
 
 #ifndef VM
 
-
 #define vm_frame_allocate(x, y) palloc_get_page(x)
 #define vm_frame_free(x) palloc_free_page(x)
 
-
 #endif
-
-
-
 
 /* Parameters for user program execution
    len: the length of a program command line 
