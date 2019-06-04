@@ -25,6 +25,7 @@ bool
 hash_init (struct hash *h,
            hash_hash_func *hash, hash_less_func *less, void *aux) 
 {
+  printf("HASH@@@@@@@@@@\n");
   h->elem_cnt = 0;
   h->bucket_cnt = 4;
   h->buckets = malloc (sizeof *h->buckets * h->bucket_cnt);
@@ -98,14 +99,15 @@ hash_destroy (struct hash *h, hash_action_func *destructor)
 struct hash_elem *
 hash_insert (struct hash *h, struct hash_elem *new)
 {
+ // printf("HASH_INSERT\n");
   struct list *bucket = find_bucket (h, new);
   struct hash_elem *old = find_elem (h, bucket, new);
-
+//  printf("@@@@@@@@@@@");
   if (old == NULL) 
     insert_elem (h, bucket, new);
 
   rehash (h);
-
+ // printf("RETURN OLD\n");
   return old; 
 }
 
@@ -131,6 +133,7 @@ hash_replace (struct hash *h, struct hash_elem *new)
 struct hash_elem *
 hash_find (struct hash *h, struct hash_elem *e) 
 {
+ // printf("DTART HASH FIND\n");
   return find_elem (h, find_bucket (h, e), e);
 }
 
@@ -305,8 +308,21 @@ hash_int (int i)
 static struct list *
 find_bucket (struct hash *h, struct hash_elem *e) 
 {
-  size_t bucket_idx = h->hash (e, h->aux) & (h->bucket_cnt - 1);
-  return &h->buckets[bucket_idx];
+ // printf("START FIND BUCKET\n");
+
+  size_t bucket_idx = h->hash (e, h->aux) ;
+
+ // printf("HASH1\n");
+
+  size_t bucket_idx2 = (h->bucket_cnt - 1);
+
+//  printf("HASH2\n");
+
+  size_t bucket_idx3 = bucket_idx&bucket_idx2;
+
+//  printf("END FIND BUCKET\n");
+  
+  return &h->buckets[bucket_idx3];
 }
 
 /* Searches BUCKET in H for a hash element equal to E.  Returns
@@ -314,10 +330,12 @@ find_bucket (struct hash *h, struct hash_elem *e)
 static struct hash_elem *
 find_elem (struct hash *h, struct list *bucket, struct hash_elem *e) 
 {
+ // printf("FIND ELEM\n");
   struct list_elem *i;
 
   for (i = list_begin (bucket); i != list_end (bucket); i = list_next (i)) 
     {
+    //  printf("LIST ELEM TO HASH ELEM\n");
       struct hash_elem *hi = list_elem_to_hash_elem (i);
       if (!h->less (hi, e, h->aux) && !h->less (e, hi, h->aux)) {    
         return hi; 

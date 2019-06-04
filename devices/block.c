@@ -53,8 +53,9 @@ block_type_name (enum block_type type)
 struct block *
 block_get_role (enum block_type role)
 {
-  printf("trying to block get role\n");
+
   ASSERT (role < BLOCK_ROLE_CNT);
+
   return block_by_role[role];
 }
 

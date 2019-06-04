@@ -1,7 +1,7 @@
 #include <hash.h>
 #include <string.h>
 #include "lib/kernel/hash.h"
-
+#include <stdio.h>
 #include "threads/synch.h"
 #include "threads/malloc.h"
 #include "threads/palloc.h"
@@ -46,6 +46,7 @@ vm_supt_destroy (struct supplemental_page_table *supt)
 bool
 vm_supt_install_frame (struct supplemental_page_table *supt, void *upage, void *kpage)
 {
+  printf("RUN INSTALL FRAME\n");
   struct supplemental_page_table_entry *spte;
   spte = (struct supplemental_page_table_entry *) malloc(sizeof(struct supplemental_page_table_entry));
 
@@ -102,6 +103,8 @@ vm_supt_set_swap (struct supplemental_page_table *supt, void *page, swap_index_t
 {
   struct supplemental_page_table_entry *spte;
   spte = vm_supt_lookup(supt, page);
+
+
   if(spte == NULL) return false;
 
   spte->status = ON_SWAP;
@@ -152,9 +155,12 @@ vm_supt_lookup (struct supplemental_page_table *supt, void *page)
   // create a temporary object, just for looking up the hash table.
   struct supplemental_page_table_entry spte_temp;
   spte_temp.upage = page;
-
+  
   struct hash_elem *elem = hash_find (&supt->page_map, &spte_temp.elem);
-  if(elem == NULL) return NULL;
+  if(elem == NULL) {
+   // printf("HASH FIND NULL!\n");
+    return NULL;
+  }
   return hash_entry(elem, struct supplemental_page_table_entry, elem);
 }
 

@@ -7,5 +7,5 @@ make
 cd build
 
 ../../utils/pintos -f -q
-../../utils/pintos -p ../../examples/matmult -a matmult -- -q
-../../utils/pintos -q run 'matmult'
+../../utils/pintos -p ../../examples/bubsort -a bubsort -- -q
+../../utils/pintos -q run 'bubsort'

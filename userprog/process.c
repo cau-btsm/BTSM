@@ -17,7 +17,8 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-
+#include "vm/frame.h"
+#include "vm/page.h"
 
 #ifndef VM
 
@@ -147,6 +148,11 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+
+  #ifdef VM
+  vm_supt_destroy(cur->supt);//SONGMINJOON
+  cur->supt=NULL;
+  #endif
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -302,6 +308,11 @@ load (struct uprg_params *params, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
+
+  #ifdef VM
+  t->supt=vm_supt_create();//SONGMINJOON
+  #endif
+
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
@@ -688,6 +699,16 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   bool success = (pagedir_get_page (t->pagedir, upage) == NULL);
   success = success && pagedir_set_page (t->pagedir, upage, kpage, writable);
+
+#ifdef VM
+  printf("TRYING\n");
+
+  success = success && vm_supt_install_frame(t->supt,upage,kpage);//SONGMINJOON
+  if(success) vm_frame_unpin(kpage);
+
+  printf("SUCCESS:%d\n",success);
+  #endif
+
 
   return success;
 

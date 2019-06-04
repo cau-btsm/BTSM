@@ -160,14 +160,14 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
+ /* printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
-          user ? "user" : "kernel");
+          user ? "user" : "kernel");*/
   //kill (f);
   
-#if VM
+#ifdef VM
    struct thread *curr = thread_current();
    void* fault_page = (void*) pg_round_down(fault_addr);
 
@@ -190,11 +190,14 @@ page_fault (struct intr_frame *f)
       goto PAGE_FAULT_VIOLATED_ACCESS;
       
    return;
-
-PAGE_FAULT_VIOLATED_ACCESS:
 #endif
 
+
+PAGE_FAULT_VIOLATED_ACCESS:
+
+   //printf("USER CHECK\n");
    if(!user) {
+    //  printf("USER\n");
       f->eip = (void *) f->eax;
       f->eax = 0xffffffff;
       return;

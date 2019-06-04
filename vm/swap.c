@@ -30,6 +30,8 @@ vm_swap_init ()
   // their total size being equal to PGSIZE.
   swap_size = block_size(swap_block) / SECTORS_PER_PAGE;
   swap_available = bitmap_create(swap_size);
+  printf("SWAP AV : %d\n",swap_size);
+
   bitmap_set_all(swap_available, true);
 }
 
@@ -45,7 +47,7 @@ swap_index_t vm_swap_out (void *page)
 
   size_t i;
   for (i = 0; i < SECTORS_PER_PAGE; ++ i) {
-    printf("ATTEMPT TO BLOCK WRITE\n");
+  //  printf("ATTEMPT TO BLOCK WRITE\n");
     block_write(swap_block,
         /* sector number */  swap_index * SECTORS_PER_PAGE + i,
         /* target address */ page + (BLOCK_SECTOR_SIZE * i)
@@ -54,7 +56,7 @@ swap_index_t vm_swap_out (void *page)
 
   // occupy the slot: available becomes false
   bitmap_set(swap_available, swap_index, false);
-  printf("RETURN SWAP INDEX\n");
+ // printf("RETURN SWAP INDEX\n");
   return swap_index;
 }
 
@@ -87,7 +89,7 @@ void
 vm_swap_free (swap_index_t swap_index)
 {
   // check the swap region
-  printf("SWAP FREE\n");
+  //printf("SWAP FREE\n");
   ASSERT (swap_index < swap_size);
   if (bitmap_test(swap_available, swap_index) == true) {
     PANIC ("Error, invalid free request to unassigned swap block");

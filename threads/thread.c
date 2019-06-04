@@ -24,6 +24,7 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -473,6 +474,7 @@ running_thread (void)
 static bool
 is_thread (struct thread *t)
 {
+ // printf("%d %d %d\n",t!=NULL,t->magic, t != NULL && t->magic == THREAD_MAGIC);
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
@@ -499,6 +501,9 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init (&t->wait_sema, 0);
   sema_init (&t->destroy_sema, 0);
   sema_init (&t->load_sema, 0);
+#endif
+#ifdef VM
+list_init(&t->mmap_list);//SONGMINJOON
 #endif
     
   old_level = intr_disable ();

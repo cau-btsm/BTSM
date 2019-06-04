@@ -65,11 +65,12 @@ vm_frame_init ()
 void*
 vm_frame_allocate (enum palloc_flags flags, void *upage)
 {
-    printf("RUN VM_FRAME_ALLOCATE\n");
+    //printf("RUN VM_FRAME_ALLOCATE\n");
   lock_acquire (&frame_lock);
 
   void *frame_page = palloc_get_page (PAL_USER | flags);
   if (frame_page == NULL) {
+    printf("PAGE NULL\n");
     // page allocation failed.
 
     /* first, swap out the page */
@@ -90,6 +91,7 @@ vm_frame_allocate (enum palloc_flags flags, void *upage)
 
     swap_index_t swap_idx = vm_swap_out( f_evicted->kpage );
     printf("GET SWAP INDEX\n");
+    printf("SWAP INDEX : %d\n",swap_idx);
     vm_supt_set_swap(f_evicted->t->supt, f_evicted->upage, swap_idx);
 
     printf("SET DIRTY\n");
@@ -189,16 +191,16 @@ struct frame_table_entry* pick_frame_to_evict( uint32_t *pagedir )
     struct frame_table_entry *e = clock_frame_next();
 
     if(e->pinned) {
-      printf("PINNED\n");
+     // printf("PINNED\n");
       continue;
     }
     // if referenced, give a second chance.
     if( pagedir_is_accessed(pagedir, e->upage)) {
       pagedir_set_accessed(pagedir, e->upage, false);
-      printf("SET FALSE\n");
+   //   printf("SET FALSE\n");
       continue;
     }
-    printf("RETURN VICTIM\n");
+   // printf("RETURN VICTIM\n");
     // OK, here is the victim : unreferenced since its last chance
     return e;
   }
