@@ -130,7 +130,10 @@ main (void)
   locate_block_devices ();
   filesys_init (format_filesys);
 #endif
-
+printf("BOOOOOOOOOOOOOOOOT\n");
+#ifdef VM
+vm_swap_init();
+#endif
   printf ("Boot complete.\n");
   
   /* Run actions specified on kernel command line. */

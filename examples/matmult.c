@@ -26,7 +26,7 @@
   4,096   196,608 kB
   8,192   786,432 kB
  16,384 3,145,728 kB */
-#define DIM 128
+#define DIM 512
 
 int A[DIM][DIM];
 int B[DIM][DIM];

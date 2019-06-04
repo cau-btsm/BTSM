@@ -172,7 +172,7 @@ page_fault (struct intr_frame *f)
    void* fault_page = (void*) pg_round_down(fault_addr);
 
    if (!not_present) {
-      goto PAGE_FAU
+      goto PAGE_FAULT_VIOLATED_ACCESS;
    }
 
    void* esp = user ? f->esp : curr->current_esp;

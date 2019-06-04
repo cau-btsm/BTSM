@@ -4,6 +4,8 @@
 #include "lib/kernel/hash.h"
 #include "lib/kernel/list.h"
 
+#include "vm/page.h"
+#include "vm/swap.h"
 #include "vm/frame.h"
 #include "threads/thread.h"
 #include "threads/malloc.h"
@@ -38,6 +40,7 @@ struct frame_table_entry
     void *upage;               /* User (Virtual Memory) Address, pointer to page */
     struct thread *t;          /* The associated thread. */
 
+    bool pinned;
   };
 
 
@@ -72,10 +75,9 @@ vm_frame_allocate (enum palloc_flags flags, void *upage)
     /* first, swap out the page */
     struct frame_table_entry *f_evicted = pick_frame_to_evict( thread_current()->pagedir );
 
-#if DEBUG
     printf("f_evicted: %x th=%x, pagedir = %x, up = %x, kp = %x, hash_size=%d\n", f_evicted, f_evicted->t,
         f_evicted->t->pagedir, f_evicted->upage, f_evicted->kpage, hash_size(&frame_map));
-#endif
+
     ASSERT (f_evicted != NULL && f_evicted->t != NULL);
 
     // clear the page mapping, and replace it with swap
@@ -86,9 +88,14 @@ vm_frame_allocate (enum palloc_flags flags, void *upage)
     is_dirty = is_dirty || pagedir_is_dirty(f_evicted->t->pagedir, f_evicted->upage);
     is_dirty = is_dirty || pagedir_is_dirty(f_evicted->t->pagedir, f_evicted->kpage);
 
-    //swap_index_t swap_idx = vm_swap_out( f_evicted->kpage );
-    //vm_supt_set_swap(f_evicted->t->supt, f_evicted->upage, swap_idx);
-    //vm_supt_set_dirty(f_evicted->t->supt, f_evicted->upage, is_dirty);
+    swap_index_t swap_idx = vm_swap_out( f_evicted->kpage );
+    printf("GET SWAP INDEX\n");
+    vm_supt_set_swap(f_evicted->t->supt, f_evicted->upage, swap_idx);
+
+    printf("SET DIRTY\n");
+    vm_supt_set_dirty(f_evicted->t->supt, f_evicted->upage, is_dirty);
+
+    printf("VM_FRAME_DO_FREE\n");
     vm_frame_do_free(f_evicted->kpage, true); // f_evicted is also invalidated
 
     frame_page = palloc_get_page (PAL_USER | flags);
@@ -105,6 +112,7 @@ vm_frame_allocate (enum palloc_flags flags, void *upage)
   frame->t = thread_current ();
   frame->upage = upage;
   frame->kpage = frame_page;
+  frame->pinned = true;
 
   // insert into hash table
   hash_insert (&frame_map, &frame->helem);
@@ -180,12 +188,17 @@ struct frame_table_entry* pick_frame_to_evict( uint32_t *pagedir )
   {
     struct frame_table_entry *e = clock_frame_next();
 
+    if(e->pinned) {
+      printf("PINNED\n");
+      continue;
+    }
     // if referenced, give a second chance.
     if( pagedir_is_accessed(pagedir, e->upage)) {
       pagedir_set_accessed(pagedir, e->upage, false);
+      printf("SET FALSE\n");
       continue;
     }
-
+    printf("RETURN VICTIM\n");
     // OK, here is the victim : unreferenced since its last chance
     return e;
   }
@@ -205,6 +218,34 @@ struct frame_table_entry* clock_frame_next(void)
   struct frame_table_entry *e = list_entry(clock_ptr, struct frame_table_entry, lelem);
   return e;
 }
+
+static void vm_frame_set_pinned(void *kpage,bool new_value){
+  lock_acquire(&frame_lock);
+
+  struct frame_table_entry f_tmp;
+  f_tmp.kpage = kpage;
+  struct hash_elem *h = hash_find(&frame_map, &(f_tmp.helem));
+
+  if(h==NULL){
+    PANIC("The frame to be pinned/unpinned does not exist");
+  }
+
+  struct frame_table_entry *f;
+  f = hash_entry(h,struct frame_table_entry, helem);
+  f->pinned = new_value;
+
+  lock_release(&frame_lock);
+
+}
+
+void vm_frame_unpin(void *kpage){
+  vm_frame_set_pinned(kpage,false);
+}
+
+void vm_frame_pin(void *kpage){
+  vm_frame_set_pinned(kpage, true);
+}
+
 
 /* Helpers */
 

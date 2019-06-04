@@ -2,7 +2,7 @@
 #include "threads/vaddr.h"
 #include "devices/block.h"
 #include "vm/swap.h"
-
+#include <stdio.h>
 static struct block *swap_block;
 static struct bitmap *swap_available;
 
@@ -14,6 +14,7 @@ static size_t swap_size;
 void
 vm_swap_init ()
 {
+  printf("SWAP INIT@@@@@@@@@@@@@@@@\n");
   ASSERT (SECTORS_PER_PAGE > 0); // 4096/512 = 8?
 
   // Initialize the swap disk
@@ -35,6 +36,7 @@ vm_swap_init ()
 
 swap_index_t vm_swap_out (void *page)
 {
+  printf("SWAP OUT\n");
   // Ensure that the page is on user's virtual memory.
   ASSERT (page >= PHYS_BASE);
 
@@ -43,6 +45,7 @@ swap_index_t vm_swap_out (void *page)
 
   size_t i;
   for (i = 0; i < SECTORS_PER_PAGE; ++ i) {
+    printf("ATTEMPT TO BLOCK WRITE\n");
     block_write(swap_block,
         /* sector number */  swap_index * SECTORS_PER_PAGE + i,
         /* target address */ page + (BLOCK_SECTOR_SIZE * i)
@@ -51,12 +54,14 @@ swap_index_t vm_swap_out (void *page)
 
   // occupy the slot: available becomes false
   bitmap_set(swap_available, swap_index, false);
+  printf("RETURN SWAP INDEX\n");
   return swap_index;
 }
 
 
 void vm_swap_in (swap_index_t swap_index, void *page)
 {
+  printf("SWAP IN\n");
   // Ensure that the page is on user's virtual memory.
   ASSERT (page >= PHYS_BASE);
 
@@ -82,6 +87,7 @@ void
 vm_swap_free (swap_index_t swap_index)
 {
   // check the swap region
+  printf("SWAP FREE\n");
   ASSERT (swap_index < swap_size);
   if (bitmap_test(swap_available, swap_index) == true) {
     PANIC ("Error, invalid free request to unassigned swap block");
