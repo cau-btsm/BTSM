@@ -120,7 +120,7 @@ struct thread
 
 #ifdef VM
 
-  struct supplemental_page_table *supt;//SONGMINJOON
+  struct page_table *table;//SONGMINJOON
 
   struct list mmap_list;
 #endif
