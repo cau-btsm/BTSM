@@ -13,6 +13,13 @@
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 
+enum SwapPolicy {
+  CLOCK,
+  SECOND_CHANCE,
+  LRU
+};
+static int historyNum = 0;
+static enum SwapPolicy Policy = SECOND_CHANCE;//Swap Policy
 
 /* A global lock, to ensure critical sections on frame operations. */
 static struct lock frame_lock;
@@ -41,6 +48,8 @@ struct frame_table_entry
     struct thread *t;          /* The associated thread. */
 
     bool pinned;
+
+    int history;
   };
 
 
@@ -69,13 +78,13 @@ vm_frame_allocate (enum palloc_flags flags, void *upage)
   lock_acquire (&frame_lock);
 
   void *frame_page = palloc_get_page (PAL_USER | flags);
-  if (frame_page == NULL) {
+  if (frame_page == NULL) {//if frame table is full,s
     printf("PAGE NULL\n");
     // page allocation failed.
 
     /* first, swap out the page */
     struct frame_table_entry *f_evicted = pick_frame_to_evict( thread_current()->pagedir );
-
+    printf("SIBAL!\n");
     printf("f_evicted: %x th=%x, pagedir = %x, up = %x, kp = %x, hash_size=%d\n", f_evicted, f_evicted->t,
         f_evicted->t->pagedir, f_evicted->upage, f_evicted->kpage, hash_size(&frame_map));
 
@@ -90,14 +99,14 @@ vm_frame_allocate (enum palloc_flags flags, void *upage)
     is_dirty = is_dirty || pagedir_is_dirty(f_evicted->t->pagedir, f_evicted->kpage);
 
     swap_index_t swap_idx = vm_swap_out( f_evicted->kpage );
-    printf("GET SWAP INDEX\n");
-    printf("SWAP INDEX : %d\n",swap_idx);
+   // printf("GET SWAP INDEX\n");
+   // printf("SWAP INDEX : %d\n",swap_idx);
     vm_supt_set_swap(f_evicted->t->supt, f_evicted->upage, swap_idx);
 
-    printf("SET DIRTY\n");
+   // printf("SET DIRTY\n");
     vm_supt_set_dirty(f_evicted->t->supt, f_evicted->upage, is_dirty);
 
-    printf("VM_FRAME_DO_FREE\n");
+   // printf("VM_FRAME_DO_FREE\n");
     vm_frame_do_free(f_evicted->kpage, true); // f_evicted is also invalidated
 
     frame_page = palloc_get_page (PAL_USER | flags);
@@ -115,7 +124,7 @@ vm_frame_allocate (enum palloc_flags flags, void *upage)
   frame->upage = upage;
   frame->kpage = frame_page;
   frame->pinned = true;
-
+  frame->history = historyNum++;
   // insert into hash table
   hash_insert (&frame_map, &frame->helem);
   list_push_back (&frame_list, &frame->lelem);
@@ -180,32 +189,106 @@ vm_frame_do_free (void *kpage, bool free_page)
 
 /** Frame Eviction Strategy : The Clock Algorithm */
 struct frame_table_entry* clock_frame_next(void);
-struct frame_table_entry* pick_frame_to_evict( uint32_t *pagedir )
-{
-  size_t n = hash_size(&frame_map);
-  if(n == 0) PANIC("Frame table is empty, can't happen - there is a leak somewhere");
 
-  size_t it;
-  for(it = 0; it <= n + n; ++ it) // prevent infinite loop. 2n iterations is enough
-  {
-    struct frame_table_entry *e = clock_frame_next();
+struct frame_table_entry* lru_entry(void);
 
-    if(e->pinned) {
-     // printf("PINNED\n");
-      continue;
+struct frame_table_entry* pick_frame_to_evict( uint32_t *pagedir ){
+  if(Policy == CLOCK){// If swap policy is CLOCK,
+
+  
+     size_t n = hash_size(&frame_map);
+    if(n == 0) PANIC("Frame table is empty, can't happen - there is a leak somewhere");
+
+    size_t it;
+    for(it = 0; it <= n + n; ++ it) // prevent infinite loop. 2n iterations is enough
+    {
+      struct frame_table_entry *e = clock_frame_next();
+
+      if(e->pinned) {
+      // printf("PINNED\n");
+        continue;
+      }
+      printf("PICK FRAME TO EVICT\n");
+      // if referenced, give a second chance.
+      if( pagedir_is_accessed(pagedir, e->upage)) {
+         printf("CALL SET\n");
+        pagedir_set_accessed(pagedir, e->upage, false);
+    //   printf("SET FALSE\n");
+        continue;
+      }
+     printf("RETURN VICTIM\n");
+      // OK, here is the victim : unreferenced since its last chance
+      printf("history %d \n",e->history);
+      return e;
     }
-    // if referenced, give a second chance.
-    if( pagedir_is_accessed(pagedir, e->upage)) {
-      pagedir_set_accessed(pagedir, e->upage, false);
-   //   printf("SET FALSE\n");
-      continue;
+
+  } else if(Policy == SECOND_CHANCE){
+    
+     size_t n = hash_size(&frame_map);
+    if(n == 0) PANIC("Frame table is empty, can't happen - there is a leak somewhere");
+
+    size_t it;
+    for(it = 0; it <= n; ++ it) // prevent infinite loop. 2n iterations is enough
+    {
+      clock_ptr=NULL;
+      struct frame_table_entry *e = clock_frame_next();
+
+      if(e->pinned) {
+      // printf("PINNED\n");
+        continue;
+      }
+      printf("PICK FRAME TO EVICT\n");
+      // if referenced, give a second chance.
+      if( pagedir_is_accessed(pagedir, e->upage)) {
+         printf("CALL SET\n");
+        pagedir_set_accessed(pagedir, e->upage, false);
+    //   printf("SET FALSE\n");
+        continue;
+      }
+     printf("RETURN VICTIM\n");
+      // OK, here is the victim : unreferenced since its last chance
+      printf("history %d \n",e->history);
+      return e;
     }
-   // printf("RETURN VICTIM\n");
-    // OK, here is the victim : unreferenced since its last chance
-    return e;
+
+  } else if(Policy == LRU){
+    size_t n = hash_size(&frame_map);
+    if(n == 0) PANIC("Frame table is empty, can't happen - there is a leak somewhere");
+      printf("START LRU\n");
+      struct frame_table_entry *e = lru_entry();
+      printf("END LRU\n");
+      return e;
+
   }
 
   PANIC ("Can't evict any frame -- Not enough memory!\n");
+};
+
+struct frame_table_entry* lru_entry(void){
+  if (list_empty(&frame_list))
+    PANIC("Frame table is empty, can't happen - there is a leak somewhere");
+    struct frame_table_entry *e;
+
+    if(clock_ptr==NULL){
+      clock_ptr=list_begin(&frame_list);
+    }
+    int oldest = 999999999;
+   // printf("FIRST OLDEST : %d\n",oldest);
+
+    for(clock_ptr=list_begin(&frame_list); clock_ptr!=list_end(&frame_list); clock_ptr=list_next(clock_ptr)){
+     // printf("history : %d, pinned : %d\n",list_entry(clock_ptr, struct frame_table_entry, lelem)->history,list_entry(clock_ptr, struct frame_table_entry, lelem)->pinned);
+      if(list_entry(clock_ptr, struct frame_table_entry, lelem)->history < oldest && (list_entry(clock_ptr, struct frame_table_entry, lelem)->pinned)==false){
+        oldest= list_entry(clock_ptr, struct frame_table_entry, lelem)->history;
+        e=list_entry(clock_ptr, struct frame_table_entry, lelem);
+        printf("oldest changed %d\n",oldest);
+      }
+    }
+ printf("HISTORY %d is picked to evict\n",e->history);
+ printf("pinned : %d\n",e->pinned);
+    e->history=99999999;
+
+   
+    return e;
 }
 struct frame_table_entry* clock_frame_next(void)
 {
@@ -216,7 +299,7 @@ struct frame_table_entry* clock_frame_next(void)
     clock_ptr = list_begin (&frame_list);
   else
     clock_ptr = list_next (clock_ptr);
-
+  
   struct frame_table_entry *e = list_entry(clock_ptr, struct frame_table_entry, lelem);
   return e;
 }

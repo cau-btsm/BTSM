@@ -1,5 +1,5 @@
 #include "threads/palloc.h"
-#include <bitmap.h>
+#include "bitmap.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -10,6 +10,7 @@
 #include "threads/loader.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+
 
 /* Page allocator.  Hands out memory in page-size (or
    page-multiple) chunks.  See malloc.h for an allocator that
@@ -69,6 +70,8 @@ palloc_init (size_t user_page_limit)
    then the pages are filled with zeros.  If too few pages are
    available, returns a null pointer, unless PAL_ASSERT is set in
    FLAGS, in which case the kernel panics. */
+
+
 void *
 palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
 {
@@ -112,7 +115,7 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
 void *
 palloc_get_page (enum palloc_flags flags) 
 {
-  printf("NUM of PAGE: %d\n", cnt++);
+ // printf("NUM of PAGE: %d\n", cnt++);
   return palloc_get_multiple (flags, 1);
 }
 

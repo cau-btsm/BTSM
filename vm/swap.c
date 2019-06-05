@@ -10,11 +10,12 @@ static const size_t SECTORS_PER_PAGE = PGSIZE / BLOCK_SECTOR_SIZE;
 
 // the number of possible (swapped) pages.
 static size_t swap_size;
-
+static int swapin=0;
+static int swapout=0;
 void
 vm_swap_init ()
 {
-  printf("SWAP INIT@@@@@@@@@@@@@@@@\n");
+ // printf("SWAP INIT@@@@@@@@@@@@@@@@\n");
   ASSERT (SECTORS_PER_PAGE > 0); // 4096/512 = 8?
 
   // Initialize the swap disk
@@ -30,7 +31,7 @@ vm_swap_init ()
   // their total size being equal to PGSIZE.
   swap_size = block_size(swap_block) / SECTORS_PER_PAGE;
   swap_available = bitmap_create(swap_size);
-  printf("SWAP AV : %d\n",swap_size);
+//  printf("SWAP AV : %d\n",swap_size);
 
   bitmap_set_all(swap_available, true);
 }
@@ -38,7 +39,8 @@ vm_swap_init ()
 
 swap_index_t vm_swap_out (void *page)
 {
-  printf("SWAP OUT\n");
+    printf("swap_out: %d\n",++swapout);
+ // printf("SWAP UT\n");
   // Ensure that the page is on user's virtual memory.
   ASSERT (page >= PHYS_BASE);
 
@@ -63,7 +65,8 @@ swap_index_t vm_swap_out (void *page)
 
 void vm_swap_in (swap_index_t swap_index, void *page)
 {
-  printf("SWAP IN\n");
+  printf("swap_in: %d\n",++swapin);
+//  printf("SWAP IN\n");
   // Ensure that the page is on user's virtual memory.
   ASSERT (page >= PHYS_BASE);
 
