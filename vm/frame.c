@@ -41,8 +41,8 @@ struct frame_table_entry
   {
     void *kpage;               /* Kernel page, mapped to physical address */
 
-    struct hash_elem helem;    /* see ::frame_map */
-    struct list_elem lelem;    /* see ::frame_list */
+    struct hash_elem hashmap;    /* see ::frame_map */
+    struct list_elem listmap;    /* see ::frame_list */
 
     void *upage;               /* User (Virtual Memory) Address, pointer to page */
     struct thread *t;          /* The associated thread. */
@@ -54,11 +54,11 @@ struct frame_table_entry
 
 
 static struct frame_table_entry* pick_frame_to_evict(uint32_t* pagedir);
-static void vm_frame_do_free (void *kpage, bool free_page);
+static void virtualmemory_frame_do_free (void *kpage, bool free_page);
 
 
 void
-vm_frame_init ()
+virtualmemory_frame_init ()
 {
   printf("INITTTTTTTTTTTTT\n");
   lock_init (&frame_lock);
@@ -72,9 +72,9 @@ vm_frame_init ()
  * and return the address of the associated page.
  */
 void*
-vm_frame_allocate (enum palloc_flags flags, void *upage)
+virtualmemory_frame_allocate (enum palloc_flags flags, void *upage)
 {
-    //printf("RUN VM_FRAME_ALLOCATE\n");
+    //printf("RUN virtualmemory_FRAME_ALLOCATE\n");
   lock_acquire (&frame_lock);
 
   void *frame_page = palloc_get_page (PAL_USER | flags);
@@ -83,31 +83,31 @@ vm_frame_allocate (enum palloc_flags flags, void *upage)
     // page allocation failed.
 
     /* first, swap out the page */
-    struct frame_table_entry *f_evicted = pick_frame_to_evict( thread_current()->pagedir );
+    struct frame_table_entry *f_picked = pick_frame_to_evict( thread_current()->pagedir );
     printf("SIBAL!\n");
-    printf("f_evicted: %x th=%x, pagedir = %x, up = %x, kp = %x, hash_size=%d\n", f_evicted, f_evicted->t,
-        f_evicted->t->pagedir, f_evicted->upage, f_evicted->kpage, hash_size(&frame_map));
+    printf("f_picked: %x th=%x, pagedir = %x, up = %x, kp = %x, hash_size=%d\n", f_picked, f_picked->t,
+        f_picked->t->pagedir, f_picked->upage, f_picked->kpage, hash_size(&frame_map));
 
-    ASSERT (f_evicted != NULL && f_evicted->t != NULL);
+    ASSERT (f_picked != NULL && f_picked->t != NULL);
 
     // clear the page mapping, and replace it with swap
-    ASSERT (f_evicted->t->pagedir != (void*)0xcccccccc);
-    pagedir_clear_page(f_evicted->t->pagedir, f_evicted->upage);
+    ASSERT (f_picked->t->pagedir != (void*)0xcccccccc);
+    pagedir_clear_page(f_picked->t->pagedir, f_picked->upage);
 
     bool is_dirty = false;
-    is_dirty = is_dirty || pagedir_is_dirty(f_evicted->t->pagedir, f_evicted->upage);
-    is_dirty = is_dirty || pagedir_is_dirty(f_evicted->t->pagedir, f_evicted->kpage);
+    is_dirty = is_dirty || pagedir_is_dirty(f_picked->t->pagedir, f_picked->upage);
+    is_dirty = is_dirty || pagedir_is_dirty(f_picked->t->pagedir, f_picked->kpage);
 
-    swap_index_t swap_idx = vm_swap_out( f_evicted->kpage );
+    swap_index_t swap_idx = virtualmemory_swap_out( f_picked->kpage );
    // printf("GET SWAP INDEX\n");
    // printf("SWAP INDEX : %d\n",swap_idx);
-    vm_supt_set_swap(f_evicted->t->supt, f_evicted->upage, swap_idx);
+    virtualmemory_table_set_swap(f_picked->t->table, f_picked->upage, swap_idx);
 
    // printf("SET DIRTY\n");
-    vm_supt_set_dirty(f_evicted->t->supt, f_evicted->upage, is_dirty);
+    virtualmemory_table_set_dirty(f_picked->t->table, f_picked->upage, is_dirty);
 
-   // printf("VM_FRAME_DO_FREE\n");
-    vm_frame_do_free(f_evicted->kpage, true); // f_evicted is also invalidated
+   // printf("virtualmemory_FRAME_DO_FREE\n");
+    virtualmemory_frame_do_free(f_picked->kpage, true); // f_picked is also invalidated
 
     frame_page = palloc_get_page (PAL_USER | flags);
     ASSERT (frame_page != NULL); // should success in this chance
@@ -137,10 +137,10 @@ vm_frame_allocate (enum palloc_flags flags, void *upage)
  * Deallocate a frame or page.
  */
 void
-vm_frame_free (void *kpage)
+virtualmemory_frame_free (void *kpage)
 {
   lock_acquire (&frame_lock);
-  vm_frame_do_free (kpage, true);
+  virtualmemory_frame_do_free (kpage, true);
   lock_release (&frame_lock);
 }
 
@@ -148,10 +148,10 @@ vm_frame_free (void *kpage)
  * Just removes then entry from table, do not palloc free.
  */
 void
-vm_frame_remove_entry (void *kpage)
+virtualmemory_frame_remove_entry (void *kpage)
 {
   lock_acquire (&frame_lock);
-  vm_frame_do_free (kpage, false);
+  virtualmemory_frame_do_free (kpage, false);
   lock_release (&frame_lock);
 }
 
@@ -161,7 +161,7 @@ vm_frame_remove_entry (void *kpage)
  * MUST BE CALLED with 'frame_lock' held.
  */
 void
-vm_frame_do_free (void *kpage, bool free_page)
+virtualmemory_frame_do_free (void *kpage, bool free_page)
 {
   ASSERT (lock_held_by_current_thread(&frame_lock) == true);
   ASSERT (is_kernel_vaddr(kpage));
@@ -304,7 +304,7 @@ struct frame_table_entry* clock_frame_next(void)
   return e;
 }
 
-static void vm_frame_set_pinned(void *kpage,bool new_value){
+static void virtualmemory_frame_set_pinned(void *kpage,bool new_value){
   lock_acquire(&frame_lock);
 
   struct frame_table_entry f_tmp;
@@ -323,12 +323,12 @@ static void vm_frame_set_pinned(void *kpage,bool new_value){
 
 }
 
-void vm_frame_unpin(void *kpage){
-  vm_frame_set_pinned(kpage,false);
+void virtualmemory_frame_unpin(void *kpage){
+  virtualmemory_frame_set_pinned(kpage,false);
 }
 
-void vm_frame_pin(void *kpage){
-  vm_frame_set_pinned(kpage, true);
+void virtualmemory_frame_pin(void *kpage){
+  virtualmemory_frame_set_pinned(kpage, true);
 }
 
 

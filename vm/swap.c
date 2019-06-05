@@ -13,7 +13,7 @@ static size_t swap_size;
 static int swapin=0;
 static int swapout=0;
 void
-vm_swap_init ()
+virtualmemory_swap_init ()
 {
  // printf("SWAP INIT@@@@@@@@@@@@@@@@\n");
   ASSERT (SECTORS_PER_PAGE > 0); // 4096/512 = 8?
@@ -37,7 +37,7 @@ vm_swap_init ()
 }
 
 
-swap_index_t vm_swap_out (void *page)
+swap_index_t virtualmemory_swap_out (void *page)
 {
     printf("swap_out: %d\n",++swapout);
  // printf("SWAP UT\n");
@@ -63,7 +63,7 @@ swap_index_t vm_swap_out (void *page)
 }
 
 
-void vm_swap_in (swap_index_t swap_index, void *page)
+void virtualmemory_swap_in (swap_index_t swap_index, void *page)
 {
   printf("swap_in: %d\n",++swapin);
 //  printf("SWAP IN\n");
@@ -89,7 +89,7 @@ void vm_swap_in (swap_index_t swap_index, void *page)
 }
 
 void
-vm_swap_free (swap_index_t swap_index)
+virtualmemory_swap_free (swap_index_t swap_index)
 {
   // check the swap region
   //printf("SWAP FREE\n");

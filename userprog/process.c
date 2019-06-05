@@ -22,8 +22,8 @@
 
 #ifndef VM
 
-#define vm_frame_allocate(x, y) palloc_get_page(x)
-#define vm_frame_free(x) palloc_free_page(x)
+#define virtualmemory_frame_allocate(x, y) palloc_get_page(x)
+#define virtualmemory_frame_free(x) palloc_free_page(x)
 
 #endif
 
@@ -150,8 +150,8 @@ process_exit (void)
 
 
   #ifdef VM
-  vm_supt_destroy(cur->supt);//SONGMINJOON
-  cur->supt=NULL;
+  virtualmemory_table_destroy(cur->table);//SONGMINJOON
+  cur->table=NULL;
   #endif
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -310,7 +310,7 @@ load (struct uprg_params *params, void (**eip) (void), void **esp)
   t->pagedir = pagedir_create ();
 
   #ifdef VM
-  t->supt=vm_supt_create();//SONGMINJOON
+  t->table=virtualmemory_table_create();//SONGMINJOON
   #endif
 
   if (t->pagedir == NULL) 
@@ -497,7 +497,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       
       // MINJUN
 
-      uint8_t *kpage = vm_frame_allocate (PAL_USER,upage);
+      uint8_t *kpage = virtualmemory_frame_allocate (PAL_USER,upage);
 
 
       if (kpage == NULL)
@@ -508,7 +508,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         {
           // MINJUN
 
-          vm_frame_free (kpage);
+          virtualmemory_frame_free (kpage);
 
 
           return false; 
@@ -520,7 +520,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         {
           // MINJUN
 
-          vm_frame_free (kpage);
+          virtualmemory_frame_free (kpage);
 
 
           return false; 
@@ -552,7 +552,7 @@ setup_stack (struct uprg_params *params, void **esp)
   
   // MINJUN
 
-  kpage = vm_frame_allocate(PAL_USER | PAL_ZERO, PHYS_BASE - PGSIZE);
+  kpage = virtualmemory_frame_allocate(PAL_USER | PAL_ZERO, PHYS_BASE - PGSIZE);
 
 
   if (kpage != NULL) 
@@ -676,7 +676,7 @@ setup_stack (struct uprg_params *params, void **esp)
 #endif 
       }
       else
-        vm_frame_free(kpage);
+        virtualmemory_frame_free(kpage);
     }
   return success;
 }
@@ -703,8 +703,8 @@ install_page (void *upage, void *kpage, bool writable)
 #ifdef VM
   printf("TRYING\n");
 
-  success = success && vm_supt_install_frame(t->supt,upage,kpage);//SONGMINJOON
-  if(success) vm_frame_unpin(kpage);
+  success = success && virtualmemory_table_install_frame(t->table,upage,kpage);//SONGMINJOON
+  if(success) virtualmemory_frame_unpin(kpage);
 
   printf("SUCCESS:%d\n",success);
   #endif

@@ -1,5 +1,5 @@
-#ifndef VM_FRAME_H
-#define VM_FRAME_H
+#ifndef VIRTUALMEMORY_FRAME_H
+#define VIRTUALMEMORY_FRAME_H
 
 #include <hash.h>
 #include "lib/kernel/hash.h"
@@ -11,13 +11,13 @@
 /* Functions for Frame manipulation. */
 
 void virtualmemory_frame_init (void);
-void* vm_frame_allocate (enum palloc_flags flags, void *upage);
+void* virtualmemory_frame_allocate (enum palloc_flags flags, void *upage);
 
-void vm_frame_free (void*);
-void vm_frame_remove_entry (void*);
+void virtualmemory_frame_free (void*);
+void virtualmemory_frame_remove_entry (void*);
 
-void vm_frame_unpin(void *kpage);
+void virtualmemory_frame_unpin(void *kpage);
 
-void vm_frame_pin(void *kpage);
+void virtualmemory_frame_pin(void *kpage);
 
 #endif /* vm/frame.h */

@@ -182,11 +182,11 @@ page_fault (struct intr_frame *f)
    is_stack_addr = (PHYS_BASE - MAX_STACK_SIZE <= fault_addr && fault_addr < PHYS_BASE);
 
    if (on_stack_frame && is_stack_addr) {
-      if (vm_supt_has_entry(curr->supt, fault_page) == false)
-         vm_supt_install_zeropage(curr->supt, fault_page);
+      if (virtualmemory_table_has_entry(curr->table, fault_page) == false)
+         virtualmemory_table_install_zeropage(curr->table, fault_page);
    }
 
-   if (!vm_load_page(curr->supt, curr->pagedir, fault_page))
+   if (!virtualmemory_load_page(curr->table, curr->pagedir, fault_page))
       goto PAGE_FAULT_VIOLATED_ACCESS;
       
    return;
