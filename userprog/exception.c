@@ -2,17 +2,8 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include "userprog/gdt.h"
-#include "userprog/syscall.h"
-#include "userprog/pagedir.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "threads/vaddr.h"
-#ifdef VM
-#include "vm/frame.h"
-#include "vm/page.h"
-#endif
-
-#define MAX_STACK_SIZE 0x800000
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -160,54 +151,11 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
- /* printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");*/
-  //kill (f);
-  
-#ifdef VM
-   struct thread *curr = thread_current();
-   void* fault_page = (void*) pg_round_down(fault_addr);
-
-   if (!not_present) {
-      goto PAGE_FAULT_VIOLATED_ACCESS;
-   }
-
-   void* esp = user ? f->esp : curr->current_esp;
-
-   bool on_stack_frame, is_stack_addr;
-   on_stack_frame = (esp <= fault_addr || fault_addr == f->esp - 32);
-   is_stack_addr = (PHYS_BASE - MAX_STACK_SIZE <= fault_addr && fault_addr < PHYS_BASE);
-
-   if (on_stack_frame && is_stack_addr) {
-      if (vm_supt_has_entry(curr->supt, fault_page) == false)
-         vm_supt_install_zeropage(curr->supt, fault_page);
-   }
-
-   if (!vm_load_page(curr->supt, curr->pagedir, fault_page))
-      goto PAGE_FAULT_VIOLATED_ACCESS;
-      
-   return;
-#endif
-
-
-PAGE_FAULT_VIOLATED_ACCESS:
-
-   //printf("USER CHECK\n");
-   if(!user) {
-    //  printf("USER\n");
-      f->eip = (void *) f->eax;
-      f->eax = 0xffffffff;
-      return;
-   }
-
-   printf("Page fault at %p: %s error %s page in %s context\n",
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-   kill(f);
+  kill (f);
 }
 

@@ -89,7 +89,6 @@ malloc_init (void)
 void *
 malloc (size_t size) 
 {
-  //printf("CALL MALLOC size = %d\n",size);
   struct desc *d;
   struct block *b;
   struct arena *a;
@@ -109,7 +108,6 @@ malloc (size_t size)
          Allocate enough pages to hold SIZE plus an arena. */
       size_t page_cnt = DIV_ROUND_UP (size + sizeof *a, PGSIZE);
       a = palloc_get_multiple (0, page_cnt);
-      printf("PALLOC_GET_MULTI = %d \n ",page_cnt);
       if (a == NULL)
         return NULL;
 

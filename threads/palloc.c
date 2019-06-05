@@ -26,8 +26,6 @@
    kernel pool, but that's just fine for demonstration purposes. */
 
 /* A memory pool. */
-int cnt = 0;
-
 struct pool
   {
     struct lock lock;                   /* Mutual exclusion. */
@@ -112,7 +110,6 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
 void *
 palloc_get_page (enum palloc_flags flags) 
 {
-  printf("NUM of PAGE: %d\n", cnt++);
   return palloc_get_multiple (flags, 1);
 }
 

@@ -7,6 +7,128 @@
 #ifdef FILESYS
 #include "filesys/file.h"
 #endif
+
+enum Selector{
+  FIRST_FIT,
+  NEXT_FIT,
+  BEST_FIT,
+  BUDDY_SYSTEM
+};
+
+enum Selector Select = FIRST_FIT;
+
+/* MINJUN */
+// static size_t lastAllocated = 0;
+
+/* For buddy system,
+root buddy node */
+BuddyNode_p root_node = (BuddyNode_p)malloc(sizeof(BuddyNode));
+
+void initRoot(void){
+  root_node -> allocated = false;
+  root_node -> hasChild = false;
+  
+  root_node -> leftChild_p = NULL;
+  root_node -> rightChild_p = NULL;
+  root_node -> parentNode = NULL;
+  root_node -> sibling = NULL;
+
+  startIdx = -1;
+  size = 256;
+}
+
+BuddyNode_p createBuddy(size_t size){
+  BuddyNode_p tempNode = (BuddyNode_p)malloc(sizeof(BuddyNode));
+  tempNode->allocated = false;
+  tempNode->hasChild = false;
+  
+  tempNode->leftChild_p = NULL;
+  tempNode->rightChild_p = NULL;
+  tempNode->parentNode = NULL;
+  tempNode->sibling = NULL;
+
+  tempNode->startIdx = -1;
+  tempNode->size = size;
+  
+  return tempNode;
+}
+
+/* cnt size 만큼의 page를 할당 할 수 있는지 없는지를 반환.
+이것을 보고 bitmap_scan에서 처럼 BITMAP_ERROR를 반환함. */
+size_t updateBuddyTree(size_t cnt){
+  BuddyNode_p head = root_node;
+  size_t bestBuddySize = head -> size;
+
+  if( bestBuddySize >= cnt){
+    
+    /* 이 반복문을 통해,
+    요구한 메모리 크기보다 큰 buddy 중에
+    가장 작은 buddy size를 찾는다. 
+    이 반복문을 돌고 난 후 bestBuddySize가 가장 최적의 buddy 사이즈가 된다.*/
+    while(1){
+      if(head->allocated == false){
+        if( bestBuddySize/2 >= cnt ){
+        
+          if(head -> hasChild == true){
+            bestBuddySize = bestBuddySize/2;
+            head = head -> leftChild_p;
+
+          }
+          
+        
+          else{
+            divideBuddy(head);
+          }
+        }
+
+        else
+        {
+          break;
+        }
+      }
+      
+      // head가 allocated 되어 있을 경우.
+      else{
+        break;
+      }
+      
+    }
+
+    return BITMAP_ERROR;
+  }
+
+  /* root buddy size 즉, 256으로 정함.
+  이것 보다 요구한 메모리 크가가 더 크면,
+  page를 할당없으므로 예외 처리. */
+  else
+  {
+    return BITMAP_ERROR;
+  }
+  
+}
+
+BuddyNode_p findProperBuddy(size_t cnt){
+  BuddyNode_p head = root_node;
+  
+  while(1){
+    head->size
+  }
+}
+
+void divideBuddy(BuddyNode_p parent, size_t size){
+  BuddyNode_p tempNode1 = createBuddy(size);
+  BuddyNode_p tempNode2 = createBuddy(size);
+
+  tempNode1 -> parentNode = parent;
+  tempNode1 -> sibling = tempNode2;
+  
+  tempNode2 -> parentNode = parent;
+  tempNode2 -> sibling = tempNode1;
+
+  parent->hasChild = true;
+  parent->leftChild_p = tempNode1;
+  parent->rightChild_p = tempNode2;
+}
 
 /* Element type.
 
@@ -295,17 +417,316 @@ bitmap_all (const struct bitmap *b, size_t start, size_t cnt)
 size_t
 bitmap_scan (const struct bitmap *b, size_t start, size_t cnt, bool value) 
 {
-
+  printf("bitmap_scan called. ");
   ASSERT (b != NULL);
   ASSERT (start <= b->bit_cnt);
 
+  /* For next fit,
+  remember a location Allocated latest.
+  initially, initialize it into start value. */
+  const size_t start_const = start;
+  static size_t lastestAlloc = start_const;
+  /* compile 에러 나면 static size_t lastestAlloc = 0; 으로만 하기. */
+
+  /* For buddy system,
+  실행 작업을 위해 이 함수가 호출되는 횟수를
+  담고 있는 변수.  */
+  static size_t check_cnt = 0;
+
+  /* For buddy system,
+  실행 작업을 위해 할당되는 공간의 크기를
+  담고 있는 변수. */
+  static size_t check_size = 0;
+
+  if(check_cnt < 3)
+  {
+    check_size = check_size + cnt;
+  }
+
+  /* KKT 
+  * fitst fit, next fit, best fit, buddy system */
   if (cnt <= b->bit_cnt) 
     {
-      size_t last = b->bit_cnt - cnt;
+      size_t last = b -> bit_cnt - cnt;
       size_t i;
-      for (i = start; i <= last; i++)
-        if (!bitmap_contains (b, i, cnt, !value))
-          return i; 
+
+      if(Select == FIRST_FIT){
+        
+        for(i = start; i <= last; i++){
+         
+          if(!bitmap_contains(b, i, cnt, !value)){
+            printf("first fit.\n");
+            printf("page index : %d\n\n", i);
+            return i;
+          }
+        }
+      } else if(Select == NEXT_FIT){
+        printf("next fit.\n");
+        for(i = lastestAlloc; i <= last; i++){
+          if(!bitmap_contains(b, i, cnt, !value)){
+            printf("found in lastest ~ last\n");
+            printf("page index : %d\n\n", i);
+            lastestAlloc = i;
+            return i;
+          }
+        }
+        
+        for(i = start; i <= lastestAlloc; i++){
+          if(!bitmap_contains(b, i, cnt, !value)){
+            printf("found in start ~ latest\n")
+            printf("page index : %d\n\n", i);
+            lastestAlloc = i;
+            return i;
+          }
+        }
+        printf("맞는 크기의 페이지를 할당하지 못했다. \nbitmap error 반환.\n\n");
+
+      } else if(Select == BEST_FIT){
+        
+
+        /* start 부터 메모리를 탐색*/
+        i = start;
+        
+        /* BESTPAGEINDEX :
+        요구하는 memory 크기보다 큰 page들 중에서 
+        가장 크기가 작은 page의 위치를 가리킨다. */
+        size_t bestPageIdx = ULONG_MAX;
+
+        /* BESTPAGESIZE :
+        요구하는 memory 크기보다 큰 page들 중에서
+        가장 크기가 작은 page의 size를 나타낸다. */
+        size_t bestPageSize = 0;
+        
+        /* TEMPIDX :
+        가장 best한 크기라고 생각되는 page의 
+        위치를 가리킨다. */
+        size_t temp_idx = ULONG_MAX;  // 0으로 초기화 해도 된다.
+        
+        /* TEMPSIZE :
+        가장 best한 크기라고 생각되는 page의
+        size를 나타낸다. */
+        size_t temp_size = 0;
+
+        /* 
+        메모리를 start 부터 순회하며,
+        best 크기의 page의 위치를 return. */
+        while(1){
+          
+          /* 메모리 전체에 대한 순회가 끝나면*/
+          if(i > last){
+            
+            /* 메모리 전체를 검사한 후에 요청한 크기에 맞는 
+            할당 가능한 페이지가 전혀 없으면 */
+            if(bestPageIdx == ULONG_MAX){
+              
+              printf("현재 할당 가능한 페이지가 없음.");
+              return BITMAP_ERROR;
+            }
+            
+            printf("best fit \n");
+            printf("best page idx : %d, best page size : %d\n\n", bestPageIdx, bestPageSize);
+            return bestPageIdx;
+          }
+          
+          if(bitmap_test(b, i) == false){
+            // 제일 처음 free한 위치를 저장한다.
+            temp_idx = i;
+            
+            /* 처음 free한 index부터 
+            bitmap index를 1씩 증가시키며,
+            not free한 위치를 찾는다. */
+            while(1){
+              i++;
+
+              if(i > last)
+                break;
+
+              if(bitmap_test(b, i) == true)
+                break;
+            }
+
+            /* temp_idx부터 not free한 위치까지의 index 개수. */
+            temp_size = bitmap_count(b, temp_idx, i-temp_idx, false);
+            
+            /* 할당할 수 있는 page 발견 시 */
+            if(cnt <= temp_size){
+              /* 제일 초기. 
+              반복에서 이전에 bestPage가 
+              하나도 발견되지 않았을 때 */
+              if(bestPageSize == 0){
+                bestPageIdx = temp_idx;
+                bestPageSize = temp_size;
+              } 
+              
+              /* 반복에서 이전에 best page가 한번이라도 발견되었을 때 
+              이전에 best였던 page 크기보다 현재 계산한 페이지 크기가 더 작으면,
+              현재 페이지를 best page로 바꿔준다. */
+              else if((bestPageSize - cnt) > (temp_size - cnt)){
+                bestPageIdx = temp_idx;
+                bestPageSize = temp_size;
+              }
+            } 
+          } else{
+            // 할당할 수 있는 페이지 발견 못할시 다음 위치를 본다.
+            i++;
+          }
+
+        }
+
+      } 
+      // else if(Select == BUDDY_SYSTEM){
+      //   /* Buddy System 기법 사용시, 
+      //   최대 할당할 수 있는 공간의 크기. */
+      //   size_t max = 512;
+
+      //   /* 요구한 메모리 크기에 가장 근접한 공간의 크기를
+      //   찾기 위해 쓰이는 변수. */
+      //   size_t bound = 512;
+
+      //   /* 할당되어 있는 공간의 2^k 크기를
+      //   구하기 위한 변수. */
+      //   size_t offset = 0;
+
+      //   /* 해당 bitmap 인덱스 부분이 빈공간인지 아닌지
+      //   알기 위해 반복문에서 사용되는 변수. */
+      //   size_t j = 0;
+        
+      //   if(check_cnt < 3){
+      //     /* i : 
+      //     요구한 메모리 크기에 가장 가까운 빈 공간의 위치를
+      //     저장하고 있는 변수. */
+      //     i = 0;
+
+      //     check_cnt++;
+      //   }
+
+      //   else{
+      //     i = check_size;
+      //   }
+
+      //   if(cnt > max){
+      //     /* 요구한 메모리 크기가
+      //     할당할 수 있는 최대 공간의 크기보다 클 경우  */
+          
+      //     return BITMAP_ERROR;
+      //   }
+
+      //   while(1){
+      //     /* 요구한 메모리 크기에 가장 가까운
+      //     free한 공간을 찾는 반복문. */
+      //     bound = bound / 2;
+
+      //     if(cnt > bound){
+            
+      //       while(1){
+              
+      //         if(i >= max + check_size){
+      //           /* 요구한 메모리 크기에 가장 가까운
+      //           free한 공간을 찾을 수 없는 경우 */
+      //           return BIT;
+      //         }
+
+      //         if(bitmap_test(b, i) == true){
+      //           /* 해당 위치(i)가 할당되어 있을 경우,
+      //           할당되어 있는 공간의 2^k 크기를 구한다. */
+      //           j = i;
+      //           while(1){
+      //             /* 할당 되어 있는 공간의 크기를 구하는 반복문. */
+
+      //             if(j >= max + check_size){
+      //               /* 빈 공간이 없는 경우에 대한 예외 처리. */
+      //               return BITMAP_ERROR;
+      //             }
+
+      //             if(bitmap_test(b, j) == true)[
+      //               offset++;
+      //             ]
+      //             else{
+      //               break;
+      //             }
+
+      //             j++;
+      //           }
+
+      //           if(offset > 256){
+      //             /* 최대가 512이닌깐 256보다 큰 공간이 할당 되어 있으면,
+      //             빈 공간이 없는 것.
+      //             빈 공간이 없는 경우에 대한 예외 처리. */
+      //             offset = 512;
+      //             return 
+      //           }
+      //           else if(offset > 128){
+      //             /* offset 변수 값을 보다 큰 2^k으로 바꾼다. */
+      //             offset = 256;
+      //           }
+      //           else if(offset > 64){
+      //             offset = 128;
+      //           }
+      //           else if(offset > 32){
+      //             offset = 64;
+      //           }
+      //           else if(offset > 16){
+      //             offset = 32;
+      //           }
+      //           else if(offset > 8){
+      //             offset = 16;
+      //           }
+      //           else if(offset > 4){
+      //             offset = 8;
+      //           }
+      //           else if(offset > 2){
+      //             offset = 4;
+      //           }
+      //           else if(offset >1){
+      //             offset = 2;
+      //           }
+      //           else if(offset >0){
+      //             offset = 1;
+      //           } // KKT 수정. 원래는 else{ offset = 1; } 임.
+
+      //           if(offset > bound * 2){
+      //             i = i + offset;
+      //           }
+      //           else{
+      //             i = i + bound * 2;
+      //           }
+      //         }
+              
+              
+      //         else{
+      //           /* 요구한 메모리 크기에 가장 맞는 공간의 위치를 찾는 반복문에서,
+      //           bitmap_test(b, i) == false 이면 */
+                
+                
+      //           if(bound != 0){
+      //             if(!bitmap_contains(b, i, bound * 2, !value)){
+      //               printf("할당된 공간 위치 i : %10d\t", i-3);
+      //               printf("요구한 메모리 크기 cnt : %10d\n", cnt);
+      //               return i;
+      //             }
+
+      //             i = i + bound * 2;
+      //           }
+      //           else{
+                  
+      //               if(bitmap_test(b, i) == false){
+      //                 printf("할당된 위치 i : %10d\t", i-3);
+      //                 printf("요구한 메모리 크기 cnt : %10d\n", cnt);
+      //                 return i;
+      //               }
+                  
+      //             i = i + 1;
+      //           }
+      //         }
+      //       }
+      //     }
+      //   }
+
+      // }
+      else {
+        printf("enum Select error");
+      }
+
     }
   return BITMAP_ERROR;
 }
@@ -320,7 +741,6 @@ bitmap_scan (const struct bitmap *b, size_t start, size_t cnt, bool value)
 size_t
 bitmap_scan_and_flip (struct bitmap *b, size_t start, size_t cnt, bool value)
 {
- // printf("REQUIRE count:%d \n",cnt);
   size_t idx = bitmap_scan (b, start, cnt, value);
   if (idx != BITMAP_ERROR) 
     bitmap_set_multiple (b, idx, cnt, !value);
@@ -370,3 +790,20 @@ bitmap_dump (const struct bitmap *b)
 {
   hex_dump (0, b->bits, byte_cnt (b->bit_cnt), false);
 }
+
+// KKT. 
+/* Dumps the contents of B to the console as binary. */
+void
+bitmap_dump_binary (const struct bitmap *b)
+{
+  size_t i, j;
+
+   for (i=0; i<elem_cnt (b->bit_cnt); i++) {
+    for (j=0; j<ELEM_BITS; j++) {
+      if ((i * ELEM_BITS + j) < b->bit_cnt) {
+        printf ("%u", (unsigned int) (b->bits[i] >> j) & 0x1);
+      }      
+    }
+    printf ("\n");
+  }
+} 

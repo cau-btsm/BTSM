@@ -17,15 +17,6 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "vm/frame.h"
-#include "vm/page.h"
-
-#ifndef VM
-
-#define vm_frame_allocate(x, y) palloc_get_page(x)
-#define vm_frame_free(x) palloc_free_page(x)
-
-#endif
 
 /* Parameters for user program execution
    len: the length of a program command line 
@@ -148,11 +139,6 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-
-  #ifdef VM
-  vm_supt_destroy(cur->supt);//SONGMINJOON
-  cur->supt=NULL;
-  #endif
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -308,11 +294,6 @@ load (struct uprg_params *params, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-
-  #ifdef VM
-  t->supt=vm_supt_create();//SONGMINJOON
-  #endif
-
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
@@ -494,23 +475,14 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      
-      // MINJUN
-
-      uint8_t *kpage = vm_frame_allocate (PAL_USER,upage);
-
-
+      uint8_t *kpage = palloc_get_page (PAL_USER);
       if (kpage == NULL)
         return false;
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
-          // MINJUN
-
-          vm_frame_free (kpage);
-
-
+          palloc_free_page (kpage);
           return false; 
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
@@ -518,11 +490,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable)) 
         {
-          // MINJUN
-
-          vm_frame_free (kpage);
-
-
+          palloc_free_page (kpage);
           return false; 
         }
 
@@ -530,11 +498,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
-
-#ifdef VM
-      ofs += PGSIZE;
-#endif
-
     }
   return true;
 }
@@ -549,12 +512,8 @@ setup_stack (struct uprg_params *params, void **esp)
 
   int i, t, argc;
   uint32_t addr; 
-  
-  // MINJUN
 
-  kpage = vm_frame_allocate(PAL_USER | PAL_ZERO, PHYS_BASE - PGSIZE);
-
-
+  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
@@ -676,7 +635,7 @@ setup_stack (struct uprg_params *params, void **esp)
 #endif 
       }
       else
-        vm_frame_free(kpage);
+        palloc_free_page (kpage);
     }
   return success;
 }
@@ -697,19 +656,6 @@ install_page (void *upage, void *kpage, bool writable)
 
   /* Verify that there's not already a page at that virtual
      address, then map our page there. */
-  bool success = (pagedir_get_page (t->pagedir, upage) == NULL);
-  success = success && pagedir_set_page (t->pagedir, upage, kpage, writable);
-
-#ifdef VM
-  printf("TRYING\n");
-
-  success = success && vm_supt_install_frame(t->supt,upage,kpage);//SONGMINJOON
-  if(success) vm_frame_unpin(kpage);
-
-  printf("SUCCESS:%d\n",success);
-  #endif
-
-
-  return success;
-
+  return (pagedir_get_page (t->pagedir, upage) == NULL
+          && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
