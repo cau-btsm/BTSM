@@ -126,8 +126,8 @@ virtualmemory_frame_allocate (enum palloc_flags flags, void *upage)
   frame->pinned = true;
   frame->history = historyNum++;
   // insert into hash table
-  hash_insert (&frame_map, &frame->helem);
-  list_push_back (&frame_list, &frame->lelem);
+  hash_insert (&frame_map, &frame->hashmap);
+  list_push_back (&frame_list, &frame->listmap);
 
   lock_release (&frame_lock);
   return frame_page;
@@ -171,7 +171,7 @@ virtualmemory_frame_do_free (void *kpage, bool free_page)
   struct frame_table_entry f_tmp;
   f_tmp.kpage = kpage;
 
-  struct hash_elem *h = hash_find (&frame_map, &(f_tmp.helem));
+  struct hash_elem *h = hash_find (&frame_map, &(f_tmp.hashmap));
   if (h == NULL) {
     PANIC ("The page to be freed is not stored in the table");
   }
