@@ -157,50 +157,54 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-
+  /* To implement virtual memory, delete the rest of the function
+     body, and replace it with code that brings in the page to
+     which fault_addr refers. */
  /* printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");*/
-  //kill (f); 기존의 kill함수를 주석처리 하였다.
+  //kill (f);
   
-#ifdef VM //가상 메모리가 define되어 있을 경우 아래와 같은 내용을 실행한다.(frame table상에서 page fault가 일어나도 가상메모리에 존재할 수 있기 때문)
-   struct thread *curr = thread_current();//현재 실행중인 스레드를 불러온다
-   void* fault_page = (void*) pg_round_down(fault_addr);//page fault가 일어난 주소를 pg_round_down 처리한다.
+#ifdef VM
+   struct thread *curr = thread_current();
+   void* fault_page = (void*) pg_round_down(fault_addr);
 
-   if (!not_present) {//!not present 인 경우 아예 존재하지 않는 것이므로 PAGE_FAULT_VIOLATED_ACCESS로 간다.
+   if (!not_present) {
       goto PAGE_FAULT_VIOLATED_ACCESS;
    }
 
-   void* esp = user ? f->esp : curr->current_esp;//현재 스택 포인터
+   void* esp = user ? f->esp : curr->current_esp;
 
    bool on_stack_frame, is_stack_addr;
    on_stack_frame = (esp <= fault_addr || fault_addr == f->esp - 32);
-   is_stack_addr = (PHYS_BASE - MAX_STACK_SIZE <= fault_addr && fault_addr < PHYS_BASE);//스택의 주소를 계산한다.
+   is_stack_addr = (PHYS_BASE - MAX_STACK_SIZE <= fault_addr && fault_addr < PHYS_BASE);
 
    if (on_stack_frame && is_stack_addr) {
-      if (virtualmemory_table_has_entry(curr->table, fault_page) == false)//가상메모리 테이블에 엔트리가 존재하지 않을경우
-         virtualmemory_table_install_zeropage(curr->table, fault_page);//0으로 채운 페이지를 가상메모리 테이블에 할당한다.
+      if (vm_supt_has_entry(curr->supt, fault_page) == false)
+         vm_supt_install_zeropage(curr->supt, fault_page);
    }
 
-   if (!virtualmemory_load_page(curr->table, curr->pagedir, fault_page))//가상메모리 페이지 테이블이 로딩되지 않을경우
-      goto PAGE_FAULT_VIOLATED_ACCESS;//page fault가 일어난다.
+   if (!vm_load_page(curr->supt, curr->pagedir, fault_page))
+      goto PAGE_FAULT_VIOLATED_ACCESS;
       
-   return;//RETURN
+   return;
 #endif
 
 
 PAGE_FAULT_VIOLATED_ACCESS:
 
-   if(!user) {//!user일 경우
+   //printf("USER CHECK\n");
+   if(!user) {
+    //  printf("USER\n");
       f->eip = (void *) f->eax;
       f->eax = 0xffffffff;
       return;
    }
 
-   printf("Page fault at %p: %s error %s page in %s context\n",//이 부분에서 나는 page fault 에러는 가상 메모리상에도 존재하지 않기 때문에
-          fault_addr,                                           //SWAP IN  또는 SWAP OUT으로도 해결할 수 없기 때문에 프로세스를 kill한다.
+   printf("Page fault at %p: %s error %s page in %s context\n",
+          fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
