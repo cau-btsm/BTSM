@@ -48,4 +48,23 @@ bool bitmap_write (const struct bitmap *, struct file *);
 /* Debugging. */
 void bitmap_dump (const struct bitmap *);
 
+
+/* For Buddy System,
+Buddy에 대한 정보를 담고 있는 binary tree의 노드. 
+typedef struct _BuddyNode * BuddyNode_p;
+typedef struct _BuddyNode{
+    bool allocated;
+    bool hasChild;
+    
+    BuddyNode_p leftChild_p;
+    BuddyNode_p rightChild_p;
+    BuddyNode_p parentNode;
+    BuddyNode_p sibling;
+
+    size_t startIdx;
+    size_t size;
+}BuddyNode;
+
+BuddyNode_p createBuddy(void); */
+
 #endif /* lib/kernel/bitmap.h */

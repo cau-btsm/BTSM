@@ -6,41 +6,37 @@
 #include "filesys/off_t.h"
 
 /**
- * Indicates a state of page.
+ * 페이지 상태를 나타내는 enum
  */
 enum page_status {
-  ALL_ZERO,         // All zeros
-  ON_FRAME,         // Actively in memory
-  ON_SWAP,          // Swapped (on swap slot)
-  FROM_FILESYS      // from filesystem (or executable)
+  ALL_ZERO,         // 0
+  ON_FRAME,         // 메인메모리 안에있다
+  ON_SWAP,          // 스왑 장치 안에있다
+  FROM_FILESYS      // 파일시스템 안에 있다
 };
 
 /**
- * Supplemental page table. The scope is per-process.
+ * 프로세스당 하나 만들어지는 페이지 테이블 정의
  */
 struct supplemental_page_table
   {
-    /* The hash table, page -> spte */
     struct hash page_map;
   };
 
 struct supplemental_page_table_entry
   {
-    void *upage;              /* Virtual address of the page (the key) */
-    void *kpage;              /* Kernel page (frame) associated to it.
-                                 Only effective when status == ON_FRAME.
-                                 If the page is not on the frame, should be NULL. */
-    struct hash_elem elem;
+    void *upage;              
+    void *kpage;              
+                                
+    struct hash_elem elem;    //해쉬 요소 설정
 
-    enum page_status status;
+    enum page_status status;  // 페이지의 상태 나타냄
 
-    bool dirty;               /* Dirty bit. */
+    bool dirty;               //더티 비트
 
     // for ON_SWAP
-    swap_index_t swap_index;  /* Stores the swap index if the page is swapped out.
-                                 Only effective when status == ON_SWAP */
+    swap_index_t swap_index;  //ON_SWAP 일때 해당하는 스왑 인덱스로 스왑 인, 스왑 아웃함
 
-    // for FROM_FILESYS
     struct file *file;
     off_t file_offset;
     uint32_t read_bytes, zero_bytes;

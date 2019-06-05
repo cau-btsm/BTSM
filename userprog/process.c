@@ -17,13 +17,13 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "vm/frame.h"
+#include "vm/frame.h" // 우리가 만든 frame.h헤더를 include하였다.
 #include "vm/page.h"
 
 #ifndef VM
 
-#define vm_frame_allocate(x, y) palloc_get_page(x)
-#define vm_frame_free(x) palloc_free_page(x)
+#define vm_frame_allocate(x, y) palloc_get_page(x) //매크로 함수를 사용하여 가상메모리 프레임테이블을 할당하면
+#define vm_frame_free(x) palloc_free_page(x)       //자동으로 페이지도 함께 할당되게 구현하였다.
 
 #endif
 
@@ -497,7 +497,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       
       // MINJUN
 
-      uint8_t *kpage = vm_frame_allocate (PAL_USER,upage);
+      uint8_t *kpage = vm_frame_allocate (PAL_USER,upage);//page_allocation 대신, 매크로 함수로 만든 가상메모리 프레임 할당 함수를 사용하였다.
 
 
       if (kpage == NULL)
@@ -508,7 +508,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         {
           // MINJUN
 
-          vm_frame_free (kpage);
+          vm_frame_free (kpage);//page free 함수 대신 우리가 만든 가상메모리 free 함수를 사용하였다.
 
 
           return false; 
@@ -520,7 +520,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         {
           // MINJUN
 
-          vm_frame_free (kpage);
+          vm_frame_free (kpage);//page free 함수 대신 우리가 만든 가상메모리 free 함수를 사용하였다.
 
 
           return false; 
@@ -552,7 +552,7 @@ setup_stack (struct uprg_params *params, void **esp)
   
   // MINJUN
 
-  kpage = vm_frame_allocate(PAL_USER | PAL_ZERO, PHYS_BASE - PGSIZE);
+  kpage = vm_frame_allocate(PAL_USER | PAL_ZERO, PHYS_BASE - PGSIZE);//page_allocation 대신, 매크로 함수로 만든 가상메모리 프레임 할당 함수를 사용하였다.
 
 
   if (kpage != NULL) 
@@ -676,7 +676,7 @@ setup_stack (struct uprg_params *params, void **esp)
 #endif 
       }
       else
-        vm_frame_free(kpage);
+        vm_frame_free(kpage);//page free 함수 대신 우리가 만든 가상메모리 free 함수를 사용하였다.
     }
   return success;
 }
@@ -691,25 +691,21 @@ setup_stack (struct uprg_params *params, void **esp)
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
 static bool
-install_page (void *upage, void *kpage, bool writable)
-{
-  struct thread *t = thread_current ();
-
-  /* Verify that there's not already a page at that virtual
-     address, then map our page there. */
+install_page (void *upage, void *kpage, bool writable)//가장 중요한 핵심이 되는 install_page 함수이다. 원래는 페이지 디렉토리(페이지 테이블)에만
+{                                                     //함수를 사용하여 엔트리를 추가했지만, 페이지 테이블에 들어가는 내용은
+  struct thread *t = thread_current ();               //반드시 가상 메모리에도 같은 내용으로 복사되어 존재해야되기 때문에 아래와 같이
+                                                      //가상메모리 테이블도 함께 install frame해 주었다.
   bool success = (pagedir_get_page (t->pagedir, upage) == NULL);
   success = success && pagedir_set_page (t->pagedir, upage, kpage, writable);
 
-#ifdef VM
-  printf("TRYING\n");
+#ifdef VM //가상 메모리가 define 되있을 경우만 실행한다.
 
-  success = success && vm_supt_install_frame(t->supt,upage,kpage);//SONGMINJOON
-  if(success) vm_frame_unpin(kpage);
+  success = success && vm_supt_install_frame(t->supt,upage,kpage);//success를 가상메모리 설치 함수와도 AND연산하였다.
+  if(success) vm_frame_unpin(kpage);//가상 메모리를 설치하면 처음에는 pinned 상태가 true이기 때문에 unpin해 주었다.
 
-  printf("SUCCESS:%d\n",success);
   #endif
 
 
-  return success;
+  return success;//가상메모리 테이블까지 설치 완료
 
 }

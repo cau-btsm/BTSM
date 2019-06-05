@@ -782,20 +782,3 @@ bitmap_dump (const struct bitmap *b)
 {
   hex_dump (0, b->bits, byte_cnt (b->bit_cnt), false);
 }
-
-// KKT. 
-/* Dumps the contents of B to the console as binary. */
-void
-bitmap_dump_binary (const struct bitmap *b)
-{
-  size_t i, j;
-
-   for (i=0; i<elem_cnt (b->bit_cnt); i++) {
-    for (j=0; j<ELEM_BITS; j++) {
-      if ((i * ELEM_BITS + j) < b->bit_cnt) {
-        printf ("%u", (unsigned int) (b->bits[i] >> j) & 0x1);
-      }      
-    }
-    printf ("\n");
-  }
-} 
